@@ -52,7 +52,7 @@ function Home() {
         <div>
             <Sidebar />
             <Stats />
-            <div style = {{ marginLeft: 360, padding: 24, marginRight: 360 }}>
+            <div style = {{ marginLeft: 264, padding: 24, marginRight: 336 }}>
             <div>
                 <h2>Notes</h2>
                 {notes.map((note) => (

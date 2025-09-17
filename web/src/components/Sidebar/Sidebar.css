@@ -1,18 +1,18 @@
 .sidebar {
   align-items: center;
-  border-color: #ffffff;
+  border-color: #354750;
   border-right-style: solid;
-  border-right-width: 1px;
+  border-right-width: 2px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 12px;
   padding: 24px;
   position: fixed;
-  width: 312px;
+  width: 216px;
   height: 100vh;
   top: 0;
   left: 0;
-  z-index: 2147483647
+  z-index: 2147483647;
 }
 
 .sidebar .frame-6 {
@@ -28,15 +28,22 @@
 
 .sidebar .image {
   aspect-ratio: 1;
-  height: 48px;
+  height: 32px;
   position: relative;
-  width: 48px;
+  width: 32px;
+}
+
+.sidebar .logo-image {
+  aspect-ratio: 1;
+  height: 32px;
+  position: relative;
+  width: 32px;
 }
 
 .sidebar .text-wrapper-10 {
   color: #ffffff;
-  font-family: "Kode Mono", Helvetica;
-  font-size: 42px;
+  font-family: "DinRoundPro", sans-serif;
+  font-size: 30px;
   font-weight: 700;
   letter-spacing: 0;
   line-height: px;
@@ -50,11 +57,11 @@
   align-self: stretch;
   display: flex;
   gap: 24px;
-  height: 76px;
+  height: 48px;
   padding-left: 12px;
   position: relative;
   width: 100%-12px;
-  border-radius: 12px;
+  border-radius: 8px;
 }
 .sidebar .frame-7:hover {
   background-color: rgba(28, 176, 246, 0.2); /* or any color you want */
@@ -65,11 +72,11 @@
 
 .sidebar .text-wrapper-11 {
   color: #ffffff;
-  font-family: "Inter", Helvetica;
-  font-size: 20px;
+  font-size: 15px;
+  font-family: 'DinRoundPro', sans-serif;
   font-weight: 700;
-  letter-spacing: -0.20px;
   line-height: normal;
+  letter-spacing: .8px;
   position: relative;
   white-space: nowrap;
   width: fit-content;

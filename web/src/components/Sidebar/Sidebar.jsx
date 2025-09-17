@@ -20,7 +20,7 @@ export const Sidebar = ({ className }) => {
     <div className={`sidebar ${className}`}>
         <div className="frame-6">
             <img
-            className="image"
+            className="logo-image"
             alt="Image"
             src="/assets/Logo.png"
             />
