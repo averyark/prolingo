@@ -47,6 +47,19 @@ const Leaderboard = () => {
       <div className="scroll">
         <LeaderboardEntry label = "BigOrange" value = "100" index = "1" image = "/assets/Icon.jpg" />
         <LeaderboardEntry label = "BigOrange" value = "98" index = "2"/>
+        <LeaderboardEntry label = "BigOrange" value = "98" index = "3"/>
+        <LeaderboardEntry label = "BigOrange" value = "98" index = "4"/>
+        <LeaderboardEntry label = "BigOrange" value = "98" index = "5"/>
+        <LeaderboardEntry label = "BigOrange" value = "98" index = "6"/>
+        <LeaderboardEntry label = "BigOrange" value = "98" index = "7"/>
+        <LeaderboardEntry label = "BigOrange" value = "98" index = "8"/>
+        <LeaderboardEntry label = "BigOrange" value = "98" index = "9"/>
+        <LeaderboardEntry label = "BigOrange" value = "98" index = "10"/>
+        <LeaderboardEntry label = "BigOrange" value = "98" index = "11"/>
+        <LeaderboardEntry label = "BigOrange" value = "98" index = "12"/>
+        <LeaderboardEntry label = "BigOrange" value = "98" index = "13"/>
+        <LeaderboardEntry label = "BigOrange" value = "98" index = "14"/>
+        <LeaderboardEntry label = "BigOrange" value = "98" index = "15"/>
       </div>
     </div>
   );

@@ -36,6 +36,7 @@
     position: fixed;
     z-index: 2147483647;
     justify-content: space-evenly !important;
+    background-color: #141B1F;
   }
   .sidebar .frame-6 {
     display: none !important;

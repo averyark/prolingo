@@ -5,7 +5,7 @@ import "../../styles/Home.css";
 function AchievementsHome() {
 
     return (
-        <div style={{ display: "flex", flexDirection: "row", height: "100vh" }}>
+        <div style={{ display: "flex", flexDirection: "row", height: "100%" }}>
             <Sidebar />
             <div className="main-content">
                 <Stats />
