@@ -1,3 +1,4 @@
+import React from "react"
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import Login from "./pages/Login"
 import Register from "./pages/Register"
@@ -19,11 +20,15 @@ import AccessCourses from "./pages/Courses"
 // import AttemptTest from "./pages/AttemptTest"
 import NotFound from "./pages/NotFound"
 import ProtectedRoute from "./components/ProtectedRoute"
+import { Toaster } from "@/components/ui/toaster"
 import LeaderboardHome from "./pages/Home/Leaderboard"
 import AchievementsHome from "./pages/Home/Achievements"
 import SettingsHome from "./pages/Home/Settings"
 import LearnHome from "./pages/Home/Learn"
 import ProfileHome from "./pages/Home/Profile"
+import AttemptTest from "./pages/Learn/AttemptTest"
+import TestResult from "./pages/Learn/TestResult"
+import SubscriptionHome from "./pages/Home/Subscription"
 
 function Logout() {
   localStorage.clear()
@@ -37,6 +42,7 @@ function RegisterAndLogout() {
 
 function App() {
   return (
+    <div className="dark">
     <BrowserRouter>
       <Routes>
         <Route
@@ -55,8 +61,10 @@ function App() {
         <Route path="/leaderboards" element={<ProtectedRoute><LeaderboardHome /></ProtectedRoute>} />
         <Route path="/achievements" element={<ProtectedRoute><AchievementsHome /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><SettingsHome /></ProtectedRoute>} />
+        <Route path="/subscription" element={<ProtectedRoute><SubscriptionHome /></ProtectedRoute>} />
         <Route path="/learn" element={<ProtectedRoute><LearnHome /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><ProfileHome /></ProtectedRoute>} />
+        
 
 
         <Route path="/update-profile" element={<ProtectedRoute><UpdateProfile /></ProtectedRoute>} />
@@ -74,10 +82,16 @@ function App() {
         <Route path="/user-answers" element={<ProtectedRoute><UserAnswers /></ProtectedRoute>} />
         <Route path="/course/:courseId" element={<ProtectedRoute><CourseDetail /></ProtectedRoute>} />
         <Route path="/access-courses" element={<ProtectedRoute><AccessCourses /></ProtectedRoute>} />
-        {/* <Route path="/attempt-test/:courseId/:chapterId/:testId" element={<ProtectedRoute><AttemptTest /></ProtectedRoute>} /> */}
+          {/* <Route path="/leaderboards" element={<ProtectedRoute><LeaderboardPage /></ProtectedRoute>} /> */}
+          {/* <Route path="/achievements" element={<ProtectedRoute><AchievementPage /></ProtectedRoute>} /> */}
+        <Route path="/attempt-test/:courseId/:chapterId/:testId" element={<ProtectedRoute><AttemptTest /></ProtectedRoute>} />
+        <Route path="/attempt-test/:courseId/:chapterId/:testId/result" element={<ProtectedRoute><TestResult /></ProtectedRoute>} />
+        <Route path="/lesson" element={<ProtectedRoute><AttemptTest /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />}></Route>
       </Routes>
-    </BrowserRouter>
+      <Toaster />
+      </BrowserRouter>
+      </div>
   )
 }
 
