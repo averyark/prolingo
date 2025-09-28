@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useBoundStore, setCourses, setSelectedCourse, removeCourse } from "@/stores/stores";
+import {
+  useBoundStore,
+  setSelectedCourse,
+  refreshUserCourses,
+  loadLearnUnitsForCourse,
+} from "@/stores/stores";
+import LoadingIndicator from "@/components/LoadingIndicator";
 import { AddCourseModal } from "@/components/learn/AddCourseModal";
 
 /*
@@ -10,41 +16,40 @@ import { AddCourseModal } from "@/components/learn/AddCourseModal";
   - Keyboard accessible (Enter/Space to open, Arrow keys to navigate, Esc to close)
 */
 
-// Temporary local sample courses (replace or populate from API/constants)
-const DEFAULT_COURSES = [
-  { id: 1, title: "C++ Foundations", description: "Basics, syntax, and first programs" },
-  { id: 2, title: "C++ OOP", description: "Classes, objects, inheritance" },
-  { id: 3, title: "Data Structures", description: "Vectors, lists, maps, and more" },
-  { id: 4, title: "Data Structures", description: "Vectors, lists, maps, and more" },
-  { id: 5, title: "Data Structures", description: "Vectors, lists, maps, and more" },
-  { id: 6, title: "Data Structures", description: "Vectors, lists, maps, and more" },
-];
-
 export function CourseSelect() {
   const courses = useBoundStore((s) => s.courses);
   const selectedCourse = useBoundStore((s) => s.selectedCourse);
+  const loading = useBoundStore((s) => s.coursesLoading);
+  const coursesLoaded = useBoundStore((s) => s.coursesLoaded);
   const [open, setOpen] = useState(false);
   const buttonRef = useRef(null);
   const listRef = useRef(null);
-  const [highlightIndex, setHighlightIndex] = useState(-1);
+  // keyboard highlight index can be added later if needed
   const [openModal, setOpenModal] = useState(false);
 
   // Initialize courses once if empty
+  // Initialize courses once; do not loop when list is empty
   useEffect(() => {
-    if (!courses || courses.length === 0) {
-      setCourses(DEFAULT_COURSES);
-    }
-  }, [courses]);
+    if (coursesLoaded) return; // already attempted
+    const abort = new AbortController();
+    refreshUserCourses(abort.signal).then(() => {
+      const first = useBoundStore.getState().selectedCourse;
+      const cid = first?.course_id ?? first?.id ?? null;
+      loadLearnUnitsForCourse(cid, abort.signal);
+    });
+    return () => abort.abort();
+  }, [coursesLoaded]);
 
   const toggle = () => setOpen((o) => !o);
   const close = () => {
     setOpen(false);
-    setHighlightIndex(-1);
   };
 
-  const onSelect = useCallback((course, idx) => {
+  const onSelect = useCallback((course) => {
     setSelectedCourse(course);
-    setHighlightIndex(idx ?? -1);
+    // Trigger learn reload for newly selected course
+    const cid = course.course_id ?? course.id;
+    loadLearnUnitsForCourse(cid);
     close();
   }, []);
 
@@ -65,42 +70,22 @@ export function CourseSelect() {
     return () => window.removeEventListener("mousedown", handleClick);
   }, [open]);
 
-  // Keyboard interactions
-  useEffect(() => {
-    function handleKey(e) {
-      if (!open) return;
-      if (e.key === "Escape") {
-        e.preventDefault();
-        close();
-      } else if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setHighlightIndex((i) => {
-          const next = Math.min((i < 0 ? 0 : i + 1), courses.length - 1);
-          return next;
-        });
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setHighlightIndex((i) => {
-          const next = Math.max(i - 1, 0);
-            return next;
-        });
-      } else if (e.key === "Enter" || e.key === " ") {
-        if (highlightIndex >= 0 && courses[highlightIndex]) {
-          e.preventDefault();
-          onSelect(courses[highlightIndex], highlightIndex);
-        }
-      }
-    }
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [open, highlightIndex, courses, onSelect]);
-
-  const label = selectedCourse ? selectedCourse.title : "Select a course";
+  const label = selectedCourse ? (selectedCourse.course_title || selectedCourse.title) : "Select a course";
 
   const handleOpenModal = () => {
     // Close dropdown before opening modal for clarity
     close();
     setOpenModal(true);
+  };
+
+  const handleModalClose = async () => {
+    setOpenModal(false);
+    // Always refetch courses after modal closes; requirement 5 will then trigger learn reload via first item
+    const abort = new AbortController();
+    await refreshUserCourses(abort.signal);
+    const first = useBoundStore.getState().selectedCourse;
+    const cid = first?.course_id ?? first?.id ?? null;
+    await loadLearnUnitsForCourse(cid, abort.signal);
   };
 
   return (
@@ -114,6 +99,11 @@ export function CourseSelect() {
         aria-expanded={open}
       >
         <span className="font-medium text-sm">{label}</span>
+        {loading && (
+          <span className="text-indigo-600">
+            <LoadingIndicator />
+          </span>
+        )}
         <svg
           className={`h-4 w-4 transition-transform ${open ? "rotate-180" : "rotate-0"}`}
           xmlns="http://www.w3.org/2000/svg"
@@ -136,45 +126,33 @@ export function CourseSelect() {
             tabIndex={-1}
             className="max-h-[280px] overflow-y-auto pr-1"
           >
-            {courses.length === 0 && (
-              <li className="px-3 py-2 text-sm text-gray-500">No courses available</li>
+            {loading && (
+              <li className="px-3 py-2 text-sm text-gray-500 flex items-center gap-2">
+                <LoadingIndicator />
+                <span>Loading courses...</span>
+              </li>
             )}
-            {courses.map((c, idx) => {
-              const isHighlighted = idx === highlightIndex;
+            {!loading && courses.length === 0 && (
+              <li className="px-3 py-2 text-sm text-gray-500">No courses available, join a course!</li>
+            )}
+            {!loading && courses.map((c) => {
               const isSelected = selectedCourse?.id === c.id;
               return (
                 <li
                   key={c.id}
                   role="option"
                   aria-selected={isSelected}
-                  onMouseEnter={() => setHighlightIndex(idx)}
-                  onMouseLeave={() => setHighlightIndex(-1)}
-                  className={`group flex items-start gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
-                    isHighlighted ? "bg-indigo-50" : ""
-                  } ${isSelected ? "font-semibold text-indigo-600" : "text-gray-700"}`}
+                  className={`group flex items-start gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-indigo-50 ${isSelected ? "font-semibold text-indigo-600" : "text-gray-700"}`}
                 >
                   <button
                     type="button"
-                    onClick={() => onSelect(c, idx)}
+                    onClick={() => onSelect(c)}
                     className="flex-1 text-left outline-none"
                   >
                     <div className="flex flex-col">
-                      <span>{c.title}</span>
-                      <span className="text-xs text-gray-500 leading-snug">{c.description}</span>
+                      <span>{c.course_title || c.title}</span>
+                      <span className="text-xs text-gray-500 leading-snug">{c.course_description || c.description}</span>
                     </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeCourse(c.id);
-                    }}
-                    className="opacity-60 hover:opacity-100 text-gray-400 hover:text-red-600 transition-colors p-1 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
-                    aria-label={`Remove ${c.title}`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
                   </button>
                 </li>
               );
@@ -194,12 +172,12 @@ export function CourseSelect() {
               >
                 <path d="M10 3a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H4a1 1 0 1 1 0-2h5V4a1 1 0 0 1 1-1Z" />
               </svg>
-              Add / join course
+              Enroll / Unenroll Course
             </button>
           </div>
         </div>
       )}
-      <AddCourseModal open={openModal} onClose={() => setOpenModal(false)} />
+      <AddCourseModal open={openModal} onClose={handleModalClose} />
     </div>
   );
 }

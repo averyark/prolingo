@@ -1,5 +1,5 @@
 import React from 'react';
-import { useStatsState } from './useStatsState.jsx';
+import { useBoundStore, refreshStats, useStreakSaver as storeUseStreakSaver } from '@/stores/stores';
 import './Stats.css';
 import { Popover, PopoverTrigger, PopoverContent, PopoverArrow } from '@/components/ui/popover.jsx';
 import StreakPopover from './StreakPopover.jsx';
@@ -12,7 +12,7 @@ import StreakPopover from './StreakPopover.jsx';
  - Card 2: Energy (number + 5 lightning icons with fill state)
  - Card 3: Leaderboards Rank (icon + label)
 
- Dynamic values pulled from useStatsState.
+ Dynamic values pulled from zustand store.
 */
 
 // Inline SVG icons (small, self-contained)
@@ -56,11 +56,44 @@ const TrophyBarsIcon = ({ className = 'w-5 h-5' }) => (
 );
 
 export const Stats = ({ className = '' }) => {
-	const { level, xp, energy, streak } = useStatsState();
+	const level = useBoundStore((s) => s.level);
+	const energy = useBoundStore((s) => s.energy);
+	const streak = useBoundStore((s) => s.streak);
+	const nextLevelProgressPct = useBoundStore((s) => s.nextLevelProgressPct);
+	const rank = useBoundStore((s) => s.rank);
+	const statsLoading = useBoundStore((s) => s.statsLoading);
+	const streakDays = useBoundStore((s) => s.streakDays);
+	const streakSaversLeft = useBoundStore((s) => s.streakSaversLeft);
+	const storeTimeToMax = useBoundStore((s) => s.timeToMaxEnergySeconds);
 
-	// Progress calculation (example formula reused from obsolete component)
-	const nextLevelTotal = level * 50 + 50;
-	const progressPct = Math.min(100, (xp / nextLevelTotal) * 100);
+	// Initial stats load guard: trigger once if not loaded/loading
+	const initRef = React.useRef(false);
+	React.useEffect(() => {
+		if (initRef.current) return;
+		const st = useBoundStore.getState();
+		if (!st.statsLoaded && !st.statsLoading) {
+			initRef.current = true;
+			refreshStats().catch(() => {});
+		} else {
+			initRef.current = true;
+		}
+	}, []);
+
+	// Local cosmetic countdown; do not write back to store every tick
+	const [timeToMaxEnergySeconds, setLocalCountdown] = React.useState(storeTimeToMax);
+	React.useEffect(() => {
+		setLocalCountdown(storeTimeToMax);
+	}, [storeTimeToMax]);
+	React.useEffect(() => {
+		if (timeToMaxEnergySeconds === null || timeToMaxEnergySeconds <= 0) return;
+		const id = setInterval(() => {
+			setLocalCountdown((prev) => (prev && prev > 0 ? prev - 1 : 0));
+		}, 1000);
+		return () => clearInterval(id);
+	}, [timeToMaxEnergySeconds]);
+
+	const applyStreakSaver = storeUseStreakSaver;
+	const loading = statsLoading;
 
 	// Energy: map total energy (0-100?) to 5 segments
 	const maxEnergy = 100; // assumption based on hook default
@@ -73,6 +106,17 @@ export const Stats = ({ className = '' }) => {
 		if (energy <= start) return 0; // empty
 		return (energy - start) / segmentValue; // partial 0-1
 	});
+
+	// Build a Set of YYYY-MM-DD checkins from streakDays
+	const checkinSet = React.useMemo(() => {
+		if (!Array.isArray(streakDays)) return new Set();
+		const s = new Set();
+		for (const d of streakDays) {
+			const iso = typeof d?.daily_streak_date === 'string' ? d.daily_streak_date.slice(0,10) : undefined;
+			if (iso) s.add(iso);
+		}
+		return s;
+	}, [streakDays]);
 
 	return (
 		<aside
@@ -89,7 +133,7 @@ export const Stats = ({ className = '' }) => {
 								</button>
 							</PopoverTrigger>
 							<PopoverContent align="end" className="w-auto" sideOffset={8}>
-								<StreakPopover />
+								<StreakPopover checkins={checkinSet} onUseStreakSaver={applyStreakSaver} streakSaversLeft={streakSaversLeft} />
 								<PopoverArrow className="fill-neutral-900/95" />
 							</PopoverContent>
 						</Popover>
@@ -101,28 +145,38 @@ export const Stats = ({ className = '' }) => {
 
 			{/* Cards */}
 			<div className="pointer-events-auto flex flex-col gap-6 w-full">
-				{/* Current Level Card */}
-				<div className="rounded-xl border border-white/15 bg-neutral-900/70 backdrop-blur-sm px-6 py-5 shadow-md flex flex-col gap-4">
-					<h2 className="text-base font-bold tracking-wide">Current Level</h2>
-					<div className="flex items-center gap-6">
-						<div className="text-5xl font-extrabold leading-none tabular-nums">{level}</div>
-						<div className="flex-1">
-							<div className="w-full h-3 rounded-full bg-neutral-800 overflow-hidden">
-								<div
-									className="h-full rounded-full bg-green-500 transition-all duration-500"
-									style={{ width: `${progressPct}%` }}
-									aria-label="Level progress"
-									aria-valuenow={progressPct}
-									aria-valuemin={0}
-									aria-valuemax={100}
-									role="progressbar"
-								/>
+						<div className="rounded-xl border border-white/15 bg-neutral-900/70 backdrop-blur-sm px-6 py-5 shadow-md flex flex-col gap-4">
+							<h2 className="text-base font-bold tracking-wide">Current Level</h2>
+							<div className="flex items-center gap-6">
+								<div className="text-5xl font-extrabold leading-none tabular-nums">{level}</div>
+								<div className="flex-1">
+									<div className="relative group">
+										<div className="w-full h-3 rounded-full bg-neutral-800 overflow-hidden">
+											<div
+												className="h-full rounded-full bg-green-500 transition-all duration-500"
+												style={{ width: `${Math.max(0, Math.min(100, nextLevelProgressPct || 0))}%` }}
+												aria-label="Level progress"
+												aria-valuenow={nextLevelProgressPct || 0}
+												aria-valuemin={0}
+												aria-valuemax={100}
+												role="progressbar"
+											/>
+										</div>
+										<div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+											<span className="px-2 py-0.5 rounded bg-neutral-900/80 text-[11px] font-semibold text-neutral-100">
+												{(() => {
+													const s = useBoundStore.getState();
+													const pct = Math.max(0, Math.min(100, nextLevelProgressPct || 0));
+													return `${s.xp ?? 0}/${s.nextLevelXP ?? 0} ${Math.round(pct)}%`;
+												})()}
+											</span>
+										</div>
+									</div>
+								</div>
 							</div>
 						</div>
-					</div>
-				</div>
 
-				{/* Energy Card */}
+						{/* Energy Card */}
 						<div className="rounded-xl border border-white/15 bg-neutral-900/70 backdrop-blur-sm px-6 py-5 shadow-md flex flex-col gap-4">
 							<h2 className="text-base font-bold tracking-wide">Energy</h2>
 							<div className="flex items-center gap-4 w-full min-w-0">
@@ -135,15 +189,26 @@ export const Stats = ({ className = '' }) => {
 									))}
 								</div>
 							</div>
+							{typeof timeToMaxEnergySeconds === 'number' && timeToMaxEnergySeconds > 0 && (
+								<div className="text-xs text-neutral-400">
+									Full in {formatDuration(timeToMaxEnergySeconds)}
+								</div>
+							)}
 						</div>
 
 				{/* Leaderboards Rank Card */}
-				<div className="rounded-xl border border-white/15 bg-neutral-900/70 backdrop-blur-sm px-6 py-5 shadow-md flex flex-col gap-4">
+								<div className="rounded-xl border border-white/15 bg-neutral-900/70 backdrop-blur-sm px-6 py-5 shadow-md flex flex-col gap-4">
 					<h2 className="text-base font-bold tracking-wide">Leaderboards Rank</h2>
-					<div className="flex items-center gap-3 text-sm font-semibold text-neutral-300">
-						<TrophyBarsIcon className="w-5 h-5 text-neutral-400" />
-						<span>No Rank</span>
-					</div>
+										<div className="flex items-center gap-3 text-sm font-semibold text-neutral-300">
+												<TrophyBarsIcon className="w-5 h-5 text-neutral-400" />
+												{loading ? (
+													<span className="text-neutral-400">Loading…</span>
+												) : rank || rank === 0 ? (
+													<span>Rank #{rank}</span>
+												) : (
+													<span>No Rank</span>
+												)}
+										</div>
 				</div>
 			</div>
 		</aside>
@@ -151,4 +216,15 @@ export const Stats = ({ className = '' }) => {
 };
 
 export default Stats;
+
+// Helper: format seconds as h:mm:ss or m:ss
+function formatDuration(totalSeconds) {
+	const s = Math.max(0, Math.floor(totalSeconds || 0));
+	const hours = Math.floor(s / 3600);
+	const minutes = Math.floor((s % 3600) / 60);
+	const seconds = s % 60;
+	const pad = (n) => String(n).padStart(2, '0');
+	if (hours > 0) return `${hours}:${pad(minutes)}:${pad(seconds)}`;
+	return `${minutes}:${pad(seconds)}`;
+}
 

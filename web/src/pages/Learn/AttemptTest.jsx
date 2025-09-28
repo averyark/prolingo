@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { questions as MockQuestions } from '@/constants';
+import { getTestQuestions, submitUserTestAttempt } from '@/client-api';
 import ExitButton from '@/components/Test/ExitButton';
 import ProgressCard from '@/components/Test/ProgressCard';
 import TimerCard from '@/components/Test/TimerCard';
@@ -18,12 +18,13 @@ import FloatingActionButton from '@/components/Test/FloatingActionButton';
  */
 export default function AttemptTest() {
 	const navigate = useNavigate();
-	const { courseId, chapterId, testId } = useParams();
+	const { testId } = useParams();
 
 	// Data state
-  const [questions] = useState(MockQuestions); // Each question may include options array
-  const [loading] = useState(false); // Future: fetch
-  const [error] = useState(''); // Future: fetch
+	const [questions, setQuestions] = useState([]); // Each question may include options array
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState('');
+	const [submitting, setSubmitting] = useState(false);
 
 	// Progress & interaction state
 	const [currentIndex, setCurrentIndex] = useState(0);
@@ -34,33 +35,6 @@ export default function AttemptTest() {
 	const [elapsedSeconds, setElapsedSeconds] = useState(0);
 	const timerRef = useRef(null);
 
-	// Assumptions (since backend test object details not loaded here yet)
-	// Could fetch test metadata if endpoint exists: /api/courses/tests/{testId}/ ??? Not in current code; leaving future hook.
-
-	// const fetchQuestions = useCallback(async () => {
-	// 	setLoading(true);
-	// 	setError('');
-	// 	try {
-	// 		// Fetch all questions then filter by testId (QuestionTable fetches all). Ideally there'd be an endpoint for test-specific.
-	// 		const response = await api.get('/api/courses/questions/');
-	// 		const all = response.data || [];
-	// 		const filtered = all.filter(q => String(q.test) === String(testId));
-
-	// 		// For MCQ we need options. Some question objects might embed options already (QuestionTable shows question.options?).
-	// 		// If not present, we could optionally fetch all options and join. For now, use existing included options field if present.
-	// 		setQuestions(filtered);
-	// 		if (filtered.length === 0) {
-	// 			setError('No questions found for this test yet.');
-	// 		}
-	// 	} catch (err) {
-	// 		const message = err?.response?.data?.detail || 'Failed to load questions';
-	// 		setError(message);
-	// 		console.error('AttemptTest fetchQuestions error', err);
-	// 	} finally {
-	// 		setLoading(false);
-	// 	}
-	// }, [testId]);
-
 	// Timer effect
 	useEffect(() => {
 		timerRef.current = setInterval(() => {
@@ -69,13 +43,32 @@ export default function AttemptTest() {
 		return () => clearInterval(timerRef.current);
 	}, []);
 
-	// useEffect(() => {
-	// 	fetchQuestions();
-	// }, [fetchQuestions]);
+	// Fetch questions for this test on mount/param change
+	const fetchQuestions = useCallback(async () => {
+		setLoading(true);
+		setError('');
+		try {
+			const data = await getTestQuestions(testId);
+			const arr = Array.isArray(data) ? data : (data?.results ?? []);
+			setQuestions(arr);
+			if (arr.length === 0) {
+				setError('No questions found for this test yet.');
+			}
+		} catch (err) {
+			const message = err?.response?.data?.detail || 'Failed to load questions';
+			setError(message);
+			console.error('AttemptTest fetchQuestions error', err);
+		} finally {
+			setLoading(false);
+		}
+	}, [testId]);
 
-  // Moved time formatting into TimerCard component
+	useEffect(() => {
+		fetchQuestions();
+	}, [fetchQuestions]);
 
 	const currentQuestion = questions[currentIndex];
+	const currentQuestionId = currentQuestion?.id ?? currentQuestion?.question_id;
 	const total = questions.length;
 	const answeredCount = Object.keys(answers).length; // Could refine to only count non-empty answers
 
@@ -84,6 +77,7 @@ export default function AttemptTest() {
 	};
 
 	const goNext = () => {
+		if (submitting) return; // Block navigation while submitting
 		if (currentIndex < total - 1) {
 			setCurrentIndex(idx => idx + 1);
 		} else {
@@ -92,26 +86,47 @@ export default function AttemptTest() {
 		}
 	};
 
-	const submitAttempt = async () => {
-		// Placeholder: gather payload and (future) POST to an endpoint.
-		const payload = {
-			test: Number(testId),
-			course: Number(courseId),
-			chapter: Number(chapterId),
-			elapsed_seconds: elapsedSeconds,
-			answers: questions.map(q => ({
-				question: q.id,
-				given_answer: answers[q.id] ?? '',
-				// For MCQ, given_answer could be option id or option text; backend contract TBD.
-			}))
-		};
-		console.log('Attempt submission payload (placeholder):', payload);
-		setHasSubmitted(true);
-		// Navigate to result page with state
-		navigate(`/attempt-test/${courseId}/${chapterId}/${testId}/result`, {
-			state: { questions, answers, elapsedSeconds }
-		});
+	const goPrev = () => {
+		if (submitting) return; // Block navigation while submitting
+		setCurrentIndex(idx => (idx > 0 ? idx - 1 : 0));
 	};
+
+		const submitAttempt = async () => {
+			// Build payload translating MCQ answers from choice_id -> option text
+			const payload = {
+				test_id: Number(testId),
+				duration: elapsedSeconds,
+				answers: questions.map(q => {
+					const qid = q.id ?? q.question_id;
+					let answer_text = answers[qid] ?? '';
+					if (q.type === 'mcq' && answer_text) {
+						// answers[qid] stores selected choice_id as string; find matching text
+						const choice = (q.choices || []).find(c => String(c.choice_id) === String(answer_text));
+						answer_text = choice?.text ?? '';
+					}
+					return {
+						question_id: qid,
+						answer_text,
+					};
+				})
+			};
+
+			try {
+				setSubmitting(true);
+				const result = await submitUserTestAttempt(payload);
+				setHasSubmitted(true);
+				// Navigate to result page with both local context and API response
+				navigate(`/attempt-test/${testId}/result`, {
+					state: { questions, answers, elapsedSeconds, submitResult: result }
+				});
+			} catch (err) {
+				const message = err?.response?.data?.detail || 'Failed to submit test attempt';
+				setError(message);
+				console.error('AttemptTest submitAttempt error', err);
+			} finally {
+				setSubmitting(false);
+			}
+		};
 
   const handleExit = () => {
     if (!hasSubmitted) {
@@ -136,30 +151,36 @@ export default function AttemptTest() {
       </div>
 
       {/* Body */}
-      <div className="flex-1 flex items-center justify-center">
-        {loading && (
-          <div className="mt-20 animate-pulse text-slate-400">Loading questions...</div>
-        )}
-        {!loading && error && <div className="text-red-400 mt-8">{error}</div>}
-        {!loading && !error && currentQuestion && (
-          <QuestionCard
-            question={currentQuestion}
-            index={currentIndex}
-            answers={answers}
-            onAnswerChange={handleAnswerChange}
-          />
-        )}
-        {!loading && !error && !currentQuestion && (
-          <div className="mt-20 text-slate-400">No questions to display.</div>
-        )}
-      </div>
+			<div className="flex-1 flex items-center justify-center">
+				{loading && (
+					<div className="mt-20 animate-pulse text-slate-400">Loading questions...</div>
+				)}
+						{submitting && (
+							<div className="mt-20 animate-pulse text-slate-400">Submitting test result...</div>
+						)}
+				{!loading && !submitting && error && <div className="text-red-400 mt-8">{error}</div>}
+		{!loading && !submitting && !error && currentQuestion && (
+					<QuestionCard
+						key={currentQuestionId}
+						question={currentQuestion}
+						index={currentIndex}
+						answers={answers}
+						onAnswerChange={handleAnswerChange}
+					/>
+				)}
+				{!loading && !submitting && !error && !currentQuestion && (
+					<div className="mt-20 text-slate-400">No questions to display.</div>
+				)}
+			</div>
 
       {/* Floating Next Button */}
-      {total > 0 && (
+		{total > 0 && (
         <FloatingActionButton
-          onClick={goNext}
-            disabled={!currentQuestion || !answers[currentQuestion.id]}
-            isLast={currentIndex === total - 1}
+		  onClick={goNext}
+		  onPrev={submitting ? undefined : goPrev}
+			isFirst={currentIndex === 0}
+				disabled={submitting || !currentQuestion || !answers[currentQuestionId]}
+			isLast={currentIndex === total - 1}
         />
       )}
     </div>
