@@ -1,147 +1,161 @@
 # Prolingo
 
+A language learning application built with Django (backend) and React (frontend).
 
-## Resources
-| Library | Documentation | Role
-| - | - | - |
-DJango | [Link](https://docs.djangoproject.com/en/5.2/topics/db/models/) | **Backend framework**. Manages databases (users, products, posts, etc.). Handles authentication, APIs (usually REST or GraphQL). Decides what data should be sent to the frontend.
-React.js | [Link](https://react.dev/reference/react-dom/components/common) | **Frontend framework**. Renders components (buttons, forms, dashboards, etc.). Updates the page dynamically without reloading (Single Page Application). Talks to Django via APIs using axios.
-Vite | [Link](https://vite.dev/guide/cli.html) | **Front end build tool**. Runs a fast dev server so you can see changes instantly.Compiles JSX/TSX into browser-ready JavaScript. Optimizes files for production (minification, bundling).
+## System Requirements
+
+- **Python 3.13+** with pip
+- **Node.js 22+** with npm/pnpm
+- **PostgreSQL 13+**
 
 ## Installation Guide
-1. **Ensure Python 3.13, PIP, PostgreSQL, NPM 11+ and Node 22+ is installed**
-    Install missing libraries\
-    [Node installer](https://nodejs.org/en/download/)\
-    [Python installer](https://www.python.org/downloads/)\
-    [PostgreSQL installer](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads)
 
-2. **Install environment and checking environment**\
-    Windows:
-    ```bash
-    python -m venv .venv
-    .venv\Scripts\activate.bat
+Follow these steps after extracting the Prolingo zip file:
 
-    Get-Command python
-    ```
-    MacOS:
-    ```bash
-    python -m venv .venv
-    source .venv\bin\activate
+### 1. Install Required Software
 
-    which python
-    ```
-    Make sure it shows that the python binary points to venv inside of he project.
+Download and install the following if not already installed:
 
-3. **Install backend dependencies**
-    ```bash
-    cd backend
-    pip install -r requirements.txt
-    ```
+- [Python 3.13+](https://www.python.org/downloads/) - Make sure to check "Add Python to PATH" during installation
+- [Node.js 22+](https://nodejs.org/en/download/) - Includes npm package manager
+- [PostgreSQL 13+](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads) - Remember the password you set for the `postgres` user
 
-4. **Setup PostgreSQL**
-    ```bash
-    psql -U postgres
-    CREATE DATABASE prolingo;
-    exit
-    ```
+### 2. Extract and Navigate to Project
 
-4. **Setup DJango**
-    ```bash
-    python manage.py makemigrations
-    python manage.py migrate
-    python manage.py runserver
-    ```
-    The backend now runs at http://127.0.0.1:8000
+1. Extract the Prolingo zip file to your desired location
+2. Open Command Prompt (Windows) or Terminal (macOS/Linux)
+3. Navigate to the extracted folder:
+   ```bash
+   cd path\to\prolingo
+   ```
 
-5. **Setup Frontend**
-    ```bash
-    cd web
-    npm install
-    npm run dev
-    ```
-    The frontend now runs at http://localhost:5173/
+### 3. Set Up Python Virtual Environment
 
-## DJango App Creation Guide
+**Windows:**
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+```
 
-1. **Create folder**\
-    Create a folder named after the app.
+**macOS/Linux:**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
-2. **Create the app**\
-    Create `apps.py` and paste the following code:
-    ```py
-    from django.apps import AppConfig
+Verify the virtual environment is active (you should see `(.venv)` in your command prompt).
 
-    class <APP_NAME>Config(AppConfig):
-    default_auto_field = "django.db.models.BigAutoField"
-    name = "<APP_NAME>"
-    ```
-    Replace `<APP_NAME>` with the app name
+### 4. Install Backend Dependencies
 
-3. **Create model**\
-    Create `models.py` inside the app folder
+```bash
+cd backend
+pip install -r requirements.txt
+```
 
-    ```py
-    from django.db import models
+### 5. Set Up PostgreSQL Database
 
-    class <APP_NAME>(models.Model):
-        name = models.CharField(max_length=255)
+1. **Start PostgreSQL service** (if not running automatically)
 
-        def __str__(self):
-            return self.name
-    ```
-    Replace `<APP_NAME>` with the app name
+2. **Connect to PostgreSQL:**
+   ```bash
+   psql -U postgres
+   ```
+   Enter the password you set during PostgreSQL installation.
 
-4. **Create views.py**
-    Create `views.py` inside the app folder:
-    ```py
-    from rest_framework import viewsets
-    from .models import <APP_NAME>
-    from .serializers import <APP_NAME>Serializer
+3. **Create database and user:**
+   ```sql
+   CREATE DATABASE prolingo;
+   CREATE USER prolingo_user WITH PASSWORD 'prolingo123';
+   GRANT ALL PRIVILEGES ON DATABASE prolingo TO prolingo_user;
+   ALTER USER prolingo_user CREATEDB;
+   \q
+   ```
 
-    class <APP_NAME>ViewSet(viewsets.ModelViewSet):
-        queryset = <APP_NAME>.objects.all()
-        serializer_class = <APP_NAME>Serializer
-    ```
-    Replace `<APP_NAME>` with the app name.
+### 6. Configure Environment Variables
 
-5. **Create serializers.py**
-    Create `serializers.py` inside the app folder:
-    ```py
-    from rest_framework import serializers
-    from .models import <APP_NAME>
+The project includes `.env` files with default configuration. If you used different database credentials in step 5, update the backend `.env` file:
 
-    class <APP_NAME>Serializer(serializers.ModelSerializer):
-        class Meta:
-            model = <APP_NAME>
-            fields = '__all__'
-    ```
-    Replace `<APP_NAME>` with the app name.
+**Edit `backend/.env`:**
+```bash
+DB_HOST="localhost"
+DB_PORT="5432"
+DB_USER="prolingo_user"
+DB_NAME="prolingo"
+DB_PWD="prolingo123"
+```
 
-6. **Create urls.py**
-    Create `urls.py` inside the app folder:
-    ```py
-    from django.urls import path, include
-    from rest_framework.routers import DefaultRouter
-    from .views import <APP_NAME>ViewSet
+### 7. Set Up Django Database
 
-    router = DefaultRouter()
-    router.register(r'<app_name>', <APP_NAME>ViewSet)
+From the `backend` directory:
+```bash
+python manage.py makemigrations
+python manage.py migrate
+```
 
-    urlpatterns = [
-        path('', include(router.urls)),
-    ]
-    ```
-    Replace `<APP_NAME>` and `<app_name>` with the app name.
+### 8. Create Django Superuser (Admin Account)
 
-7. **Include app URLs in project urls.py**
-    In your main `urls.py`, add:
-    ```py
-    path('<app_name>/', include('<APP_NAME>.urls')),
-    ```
-    Replace `<APP_NAME>` and `<app_name>` with the app name.
-8. **Run migrations**
-    ```bash
-    python manage.py makemigrations <APP_NAME>
-    python manage.py migrate
-    ```
-    Replace `<APP_NAME>` with the app name.
+```bash
+python manage.py createsuperuser
+```
+Follow the prompts to create an admin account for accessing the Django admin panel.
+
+### 9. Install Frontend Dependencies
+
+Open a **new terminal/command prompt** and navigate to the frontend:
+```bash
+cd path\to\prolingo\web
+npm install
+```
+
+### 10. Start the Application
+
+You'll need **two terminal windows** open:
+
+**Terminal 1 - Backend (from `backend` directory):**
+```bash
+python manage.py runserver
+```
+The backend API will run at: http://127.0.0.1:8000
+
+**Terminal 2 - Frontend (from `web` directory):**
+```bash
+npm run dev
+```
+The frontend application will run at: http://localhost:5173
+
+### 11. Access the Application
+
+- **Main Application:** http://localhost:5173
+- **Admin Panel:** http://127.0.0.1:8000/admin (use the superuser account created in step 8)
+- **API Documentation:** http://127.0.0.1:8000/api/schema/swagger-ui/
+
+## Troubleshooting
+
+### Common Issues:
+
+**1. "python command not found"**
+- Ensure Python is added to your system PATH
+- On Windows, try `py` instead of `python`
+
+**2. "psql command not found"**
+- Add PostgreSQL bin directory to your system PATH
+- Or use pgAdmin GUI tool instead
+
+**3. Database connection error**
+- Verify PostgreSQL is running
+- Check database credentials in `backend/.env`
+- Ensure the database `prolingo` exists
+
+**4. Port already in use**
+- Backend (port 8000): Stop other Django applications or change port with `python manage.py runserver 8001`
+- Frontend (port 5173): Vite will automatically use the next available port
+
+**5. Frontend build errors**
+- Clear npm cache: `npm cache clean --force`
+- Delete `node_modules` and reinstall: `rm -rf node_modules && npm install`
+
+## Stopping the Application
+
+To stop the servers:
+1. Press `Ctrl+C` in both terminal windows
+2. Deactivate the Python virtual environment: `deactivate`
