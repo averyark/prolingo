@@ -156,7 +156,7 @@ The frontend application will run at: http://localhost:5173
 ### 11. Access the Application
 
 - **Main Application:** http://localhost:5173
-- **Admin Panel:** http://127.0.0.1:8000/admin (use the superuser account created in step 8)
+- **Admin Panel:** http://127.0.0.1:8000/admin (use the superuser account created in step 8),navigate http://127.0.0.1:8000/admin/users/user/1/change/ to enable admin role, then admin panel is available at http://localhost:5173/admin
 - **API Documentation:** http://127.0.0.1:8000/api/schema/swagger-ui/
 
 ## Troubleshooting
