@@ -104,10 +104,13 @@ If migrations are missing for some apps:
          ```bash
          python manage.py makemigrations
          ```
-- To force per-app generation (helpful when one app fails):
+- To force per-app generation (helpful when one app fails e.g: achievements):
     ```bash
-    python manage.py makemigrations accounts lessons progress
+    python manage.py makemigrations achievements
     ```
+
+- Do it for all the similar apps: courses, feedback, gameinfo, premium, & streaks
+
 - If you still see "No changes detected" but expect models, open Django shell to confirm import:
     ```bash
     python manage.py shell
