@@ -83,12 +83,39 @@ DB_USER="prolingo_user"
 DB_NAME="prolingo"
 DB_PWD="prolingo123"
 ```
-
 ### 7. Set Up Django Database
 
 From the `backend` directory:
 ```bash
 python manage.py makemigrations
+python manage.py migrate
+```
+
+If migrations are missing for some apps:
+- Ensure each app is listed in INSTALLED_APPS.
+- For apps using a models/ package (directory) instead of a single models.py:
+    1. The folder must contain an `__init__.py`.
+    2. Import submodules inside `models/__init__.py`, for example:
+         ```python
+         from .user import *
+         from .course import *
+         ```
+    3. Re-run:
+         ```bash
+         python manage.py makemigrations
+         ```
+- To force per-app generation (helpful when one app fails):
+    ```bash
+    python manage.py makemigrations accounts lessons progress
+    ```
+- If you still see "No changes detected" but expect models, open Django shell to confirm import:
+    ```bash
+    python manage.py shell
+    >>> from accounts.models import SomeModel
+    ```
+
+Then apply:
+```bash
 python manage.py migrate
 ```
 
